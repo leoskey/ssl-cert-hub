@@ -15,7 +15,7 @@ public class AlibabaCloudDnsProvider : IDnsProvider, ITransientDependency
 
     public AlibabaCloudDnsProvider(
         ILogger<AlibabaCloudDnsProvider> logger,
-        IOptionsMonitor<AlibabaCloudDnsProviderOptions> options
+        IOptionsMonitor<AlibabaCloudProviderOptions> options
     )
     {
         _logger = logger;

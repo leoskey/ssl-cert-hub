@@ -1,6 +1,4 @@
 using System.Collections.Concurrent;
-using System.Reflection;
-using System.Text;
 using Certes;
 using Certes.Acme;
 using Certes.Acme.Resource;
@@ -8,7 +6,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SslCertHub.Abstractions;
 using Volo.Abp.DependencyInjection;
-using Directory = System.IO.Directory;
 
 namespace SslCertHub.Services;
 
@@ -16,17 +13,20 @@ public class LetsEncryptCertProvider : ICertProvider, IDisposable, ITransientDep
 {
     private readonly ILogger<LetsEncryptCertProvider> _logger;
     private readonly IOptionsMonitor<LetsEncryptCertProviderOptions> _options;
+    private readonly IFileStorageManager _fileStorageManager;
 
     private readonly ConcurrentDictionary<string, (IOrderContext orderContext, IChallengeContext challengeContext)>
         _orderContexts = new();
 
     public LetsEncryptCertProvider(
         ILogger<LetsEncryptCertProvider> logger,
-        IOptionsMonitor<LetsEncryptCertProviderOptions> options
+        IOptionsMonitor<LetsEncryptCertProviderOptions> options,
+        IFileStorageManager fileStorageManager
     )
     {
         _logger = logger;
         _options = options;
+        _fileStorageManager = fileStorageManager;
     }
 
     public async ValueTask<string> DnsTxtAsync(string domain)
@@ -49,14 +49,14 @@ public class LetsEncryptCertProvider : ICertProvider, IDisposable, ITransientDep
 
     private async Task<AcmeContext> CreateAcmeContextAsync()
     {
-        var pemKey = GetAccountKey();
+        var pemKey = await _fileStorageManager.GetAccountKeyAsync();
 
         if (pemKey == null)
         {
             var acmeContext = new AcmeContext(WellKnownServers.LetsEncryptV2);
             await acmeContext.NewAccount(_options.CurrentValue.Email, true);
             pemKey = acmeContext.AccountKey.ToPem();
-            SetAccountKey(pemKey);
+            await _fileStorageManager.SetAccountKeyAsync(pemKey);
             return acmeContext;
         }
         else
@@ -66,30 +66,6 @@ public class LetsEncryptCertProvider : ICertProvider, IDisposable, ITransientDep
             await acmeContext.Account();
             return acmeContext;
         }
-    }
-
-    private readonly string _configDirectoryPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        $".{Assembly.GetExecutingAssembly().GetName().Name}"
-    );
-
-    private const string KeyFileName = "letsencrypt.key";
-
-    private string? GetAccountKey()
-    {
-        var filePath = Path.Combine(_configDirectoryPath, KeyFileName);
-        return File.Exists(filePath) ? File.ReadAllText(filePath, Encoding.UTF8) : null;
-    }
-
-    private void SetAccountKey(string key)
-    {
-        if (!Directory.Exists(_configDirectoryPath))
-        {
-            Directory.CreateDirectory(_configDirectoryPath);
-        }
-
-        var filePath = Path.Combine(_configDirectoryPath, KeyFileName);
-        File.WriteAllText(filePath, key, Encoding.UTF8);
     }
 
     public async Task<Certificate> ChallengeAsync(string domain)
@@ -124,7 +100,11 @@ public class LetsEncryptCertProvider : ICertProvider, IDisposable, ITransientDep
 
         _logger.LogInformation("Certificate generated for domain {Domain}", domain);
 
-        return new Certificate(domain: domain, pemPublicKey: certPem, pemPrivateKey: privateKey.ToPem());
+        return new Certificate(
+            domain: domain,
+            pemPublicKey: certPem,
+            pemPrivateKey: privateKey.ToPem()
+        );
     }
 
     public void Dispose()

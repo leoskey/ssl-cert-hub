@@ -4,19 +4,21 @@ using AlibabaCloud.SDK.Cas20200407.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SslCertHub.Abstractions;
+using SslCertHub.Services;
 using Volo.Abp.DependencyInjection;
 
-namespace SslCertHub.Plugins;
+namespace SslCertHub.Plugins.AlibabaCloudCas;
 
-[ExposeServices(typeof(ICertManagerPlugin))]
-public class AlibabaCloudCasPlugin : ICertManagerPlugin, ITransientDependency
+[ExposeServices(typeof(ISslCertHubPlugin))]
+public class AlibabaCloudCas : ISslCertHubPlugin, ITransientDependency
 {
-    private readonly ILogger<AlibabaCloudCasPlugin> _logger;
+    private readonly ILogger<AlibabaCloudCas> _logger;
     private readonly Client _client;
 
-    public AlibabaCloudCasPlugin(
-        ILogger<AlibabaCloudCasPlugin> logger,
-        IOptionsMonitor<AlibabaCloudCasPluginOptions> options)
+    public AlibabaCloudCas(
+        ILogger<AlibabaCloudCas> logger,
+        IOptionsMonitor<AlibabaCloudProviderOptions> options
+    )
     {
         _logger = logger;
         var config = new Config

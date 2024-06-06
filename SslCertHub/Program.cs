@@ -30,6 +30,7 @@ try
 
     builder.ConfigureContainer(builder.Services.AddAutofacServiceProviderFactory());
 
+    builder.Services.AddHostedService<SslCertHubHostService>();
     await builder.Services.AddApplicationAsync<SslCertHubModule>();
 
     var host = builder.Build();

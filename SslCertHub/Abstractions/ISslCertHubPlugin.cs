@@ -1,6 +1,6 @@
 namespace SslCertHub.Abstractions;
 
-public interface ICertManagerPlugin
+public interface ISslCertHubPlugin
 {
     Task OnCertGenerated(Certificate certificate);
 }
