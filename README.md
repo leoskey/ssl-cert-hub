@@ -34,13 +34,15 @@ git clone https://github.com/leoskey/SslCertHub.git
     }
   },
   "Plugin": {
-    "AlibabaCloudCas": {
-      "AccessKeyId": "your-access-key-id",
-      "AccessKeySecret": "your-access-key-secret"
-    }
+    "AlibabaCloudCas": {}
   },
   "Domains": [
-    "your-domain.com"
+    {
+      "DomainName": "your-domain.com",
+      "Plugins": [
+        "AlibabaCloudCas"
+      ]
+    }
   ]
 }
 ```
