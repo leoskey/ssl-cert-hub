@@ -38,8 +38,8 @@ public class SslCertManager
         }
     }
 
-    public void AddPlugin(ICertManagerPlugin plugin)
+    public void AddPlugins(IEnumerable<ICertManagerPlugin> plugins)
     {
-        _plugins.Add(plugin);
+        _plugins.AddRange(plugins);
     }
 }

@@ -1,28 +1,56 @@
-﻿using SslCertHub;
-using SslCertHub.Plugins;
-using SslCertHub.Services;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Serilog;
+using Serilog.Events;
+using SslCertHub;
+using Volo.Abp;
 
-var email = "";
-var domain = "";
-var accessKeyId = "";
-var accessKeySecret = "";
+Log.Logger = new LoggerConfiguration()
+#if DEBUG
+    .MinimumLevel.Debug()
+#else
+            .MinimumLevel.Information()
+#endif
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
+    .Enrich.FromLogContext()
+    .WriteTo.Async(c => c.File("Logs/logs.txt"))
+    .WriteTo.Async(c => c.Console())
+    .CreateLogger();
 
-var dnsProvider = new AlibabaCloudDnsProvider(new AlibabaCloudDnsProviderOptions
+try
 {
-    AccessKeyId = accessKeyId,
-    AccessKeySecret = accessKeySecret,
-});
-var certProvider = new LetsEncryptCertProvider(new LetsEncryptCertProviderOptions
+    Log.Information("Starting console host");
+
+    var builder = Host.CreateApplicationBuilder(args);
+
+    builder.Configuration.AddAppSettingsSecretsJson();
+    builder.Logging.ClearProviders().AddSerilog();
+
+    builder.ConfigureContainer(builder.Services.AddAutofacServiceProviderFactory());
+
+    await builder.Services.AddApplicationAsync<SslCertHubModule>();
+
+    var host = builder.Build();
+
+    await host.InitializeAsync();
+
+    await host.RunAsync();
+
+    return 0;
+}
+catch (Exception ex)
 {
-    Email = email
-});
+    if (ex is HostAbortedException)
+    {
+        throw;
+    }
 
-var certManager = new SslCertManager(certProvider, dnsProvider);
-
-certManager.AddPlugin(new AlibabaCloudCasPlugin(new AlibabaCloudCasPluginOptions
+    Log.Fatal(ex, "Host terminated unexpectedly!");
+    return 1;
+}
+finally
 {
-    AccessKeyId = accessKeyId,
-    AccessKeySecret = accessKeySecret,
-}));
-
-var certificate = await certManager.GenerateCertAsync(domain);
+    Log.CloseAndFlush();
+}
