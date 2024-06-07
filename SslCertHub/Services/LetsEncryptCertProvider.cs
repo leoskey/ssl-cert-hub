@@ -68,7 +68,7 @@ public class LetsEncryptCertProvider : ICertProvider, IDisposable, ITransientDep
         }
     }
 
-    public async Task<Certificate> ChallengeAsync(string domain)
+    public async Task<CertificateInfo> ChallengeAsync(string domain)
     {
         var orderContext = _orderContexts[domain];
 
@@ -80,7 +80,7 @@ public class LetsEncryptCertProvider : ICertProvider, IDisposable, ITransientDep
 
             if (challenge.Status == ChallengeStatus.Invalid)
             {
-                throw new CertProviderException("DNS validation failed. Error:" + challenge.Error);
+                throw new CertProviderException("DNS validation failed. Error:" + challenge.Error.Detail);
             }
 
             if (challenge.Status != ChallengeStatus.Valid)
@@ -96,15 +96,12 @@ public class LetsEncryptCertProvider : ICertProvider, IDisposable, ITransientDep
         var privateKey = KeyFactory.NewKey(KeyAlgorithm.RS256);
         var cert = await orderContext.orderContext.Generate(new CsrInfo(), privateKey);
 
-        var certPem = cert.ToPem();
+        var pfxBuilder = cert.ToPfx(privateKey);
+        var pfxBytes = pfxBuilder.Build(domain, CertificateInfo.DefaultCertificatePassword);
 
         _logger.LogInformation("Certificate generated for domain {Domain}", domain);
 
-        return new Certificate(
-            domain: domain,
-            pemPublicKey: certPem,
-            pemPrivateKey: privateKey.ToPem()
-        );
+        return new CertificateInfo(domain, pfxBytes);
     }
 
     public void Dispose()

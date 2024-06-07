@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using SslCertHub.Abstractions;
 using Volo.Abp.DependencyInjection;
 
@@ -7,17 +8,22 @@ namespace SslCertHub.Services;
 
 public class FileStorageManager : IFileStorageManager, ISingletonDependency
 {
-    private readonly string _configDirectoryPath = Path.Combine(
+    private readonly ILogger<FileStorageManager> _logger;
+
+    private static string _configDirectoryPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         $".{Assembly.GetExecutingAssembly().GetName().Name}"
     );
 
     private const string KeyFileName = "letsencrypt.key";
 
-    private const string PublicKeyFileExtension = ".pem";
+    private const string KeyFileExtension = ".pfx";
 
-    public FileStorageManager()
+    public FileStorageManager(
+        ILogger<FileStorageManager> logger
+    )
     {
+        _logger = logger;
         if (!Directory.Exists(_configDirectoryPath))
         {
             Directory.CreateDirectory(_configDirectoryPath);
@@ -36,35 +42,31 @@ public class FileStorageManager : IFileStorageManager, ISingletonDependency
         await File.WriteAllTextAsync(filePath, key, Encoding.UTF8);
     }
 
-    public async Task<Certificate?> GetCertificateAsync(string domain)
+    public async Task<CertificateInfo?> GetCertificateAsync(string domain)
     {
-        var publicKeyPath = Path.Combine(_configDirectoryPath, $"{domain}.pem");
-        if (!File.Exists(publicKeyPath))
+        var filePath = Path.Combine(_configDirectoryPath, $"{domain}.{KeyFileExtension}");
+        if (!File.Exists(filePath))
         {
             return null;
         }
 
-        var privateKeyPath = Path.Combine(_configDirectoryPath, $"{domain}.key");
-        if (!File.Exists(privateKeyPath))
+        try
         {
+            var bytes = await File.ReadAllBytesAsync(filePath);
+            return new CertificateInfo(domain, bytes);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Error reading certificate file {FilePath}", filePath);
             return null;
         }
-
-        var publicKey = await File.ReadAllTextAsync(publicKeyPath, Encoding.UTF8);
-        var privateKey = await File.ReadAllTextAsync(privateKeyPath, Encoding.UTF8);
-
-        return new Certificate(
-            domain: domain,
-            pemPublicKey: publicKey,
-            pemPrivateKey: privateKey
-        );
     }
 
-    public async Task SaveCertificateAsync(Certificate certificate)
+    public async Task SaveCertificateAsync(CertificateInfo certificateInfo)
     {
-        var publicKeyPath = Path.Combine(_configDirectoryPath, $"{certificate.Domain}.pem");
-        var privateKeyPath = Path.Combine(_configDirectoryPath, $"{certificate.Domain}.key");
-        await File.WriteAllTextAsync(publicKeyPath, certificate.PemPublicKey, Encoding.UTF8);
-        await File.WriteAllTextAsync(privateKeyPath, certificate.PemPrivateKey, Encoding.UTF8);
+        var publicKeyPath = Path.Combine(_configDirectoryPath, $"{certificateInfo.Domain}.pem");
+        var privateKeyPath = Path.Combine(_configDirectoryPath, $"{certificateInfo.Domain}.key");
+        await File.WriteAllTextAsync(publicKeyPath, certificateInfo.PublicKey, Encoding.UTF8);
+        await File.WriteAllTextAsync(privateKeyPath, certificateInfo.PrivateKey, Encoding.UTF8);
     }
 }

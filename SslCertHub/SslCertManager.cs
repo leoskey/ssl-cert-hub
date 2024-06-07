@@ -42,16 +42,17 @@ public class SslCertManager : ISingletonDependency
 
         foreach (var domain in _domainOptions.CurrentValue)
         {
-            await GenerateCertAsync(domain);
+            await RunTaskAsync(domain);
         }
     }
 
-    private async Task<Certificate> GenerateCertAsync(DomainOptions domainOptions)
+    private async Task RunTaskAsync(DomainOptions domainOptions)
     {
-        var certificate = await _fileStorageManager.GetCertificateAsync(domainOptions.DomainName);
-        if (certificate is { Expired: false })
+        var certificateInfo = await _fileStorageManager.GetCertificateAsync(domainOptions.DomainName);
+        if (certificateInfo != null && certificateInfo.Certificate.NotAfter > DateTime.Now.AddDays(7))
         {
-            return certificate;
+            _logger.LogInformation("Certificate for domain {Domain} is still valid", domainOptions.DomainName);
+            return;
         }
 
         string? dnsRecordId = null;
@@ -59,12 +60,10 @@ public class SslCertManager : ISingletonDependency
         {
             var dnsText = await _certProvider.DnsTxtAsync(domainOptions.DomainName);
             dnsRecordId = await _dnsProvider.AddDnsTxtRecordAsync(domainOptions.DomainName, dnsText);
-            certificate = await _certProvider.ChallengeAsync(domainOptions.DomainName);
-            await _fileStorageManager.SaveCertificateAsync(certificate);
+            certificateInfo = await _certProvider.ChallengeAsync(domainOptions.DomainName);
+            await _fileStorageManager.SaveCertificateAsync(certificateInfo);
 
-            await RunPluginsAsync(domainOptions, certificate);
-
-            return certificate;
+            await RunPluginsAsync(domainOptions, certificateInfo);
         }
         finally
         {
@@ -75,8 +74,13 @@ public class SslCertManager : ISingletonDependency
         }
     }
 
-    private async Task RunPluginsAsync(DomainOptions domain, Certificate certificate)
+    private async Task RunPluginsAsync(DomainOptions domain, CertificateInfo certificateInfo)
     {
+        if (_plugins == null || !_plugins.Any())
+        {
+            return;
+        }
+
         var plugins = _plugins
             .Where(plugin => domain.Plugins.Contains(plugin.GetType().Name))
             .ToList();
@@ -85,7 +89,7 @@ public class SslCertManager : ISingletonDependency
         {
             try
             {
-                await certManagerPlugin.OnCertGenerated(certificate);
+                await certManagerPlugin.OnCertGenerated(certificateInfo);
             }
             catch (Exception e)
             {

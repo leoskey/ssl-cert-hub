@@ -30,16 +30,16 @@ public class AlibabaCloudCdn : ISslCertHubPlugin, ITransientDependency
         _client = new Client(config);
     }
 
-    public async Task OnCertGenerated(Certificate certificate)
+    public async Task OnCertGenerated(CertificateInfo certificateInfo)
     {
         _logger.LogInformation("Uploading certificate to Alibaba Cloud CDN");
         var request = new SetCdnDomainSSLCertificateRequest
         {
-            DomainName = certificate.Domain,
+            DomainName = certificateInfo.Domain,
             CertType = "upload",
             SSLProtocol = "on",
-            SSLPub = certificate.PemPublicKey,
-            SSLPri = certificate.PemPrivateKey
+            SSLPub = certificateInfo.PublicKey,
+            SSLPri = certificateInfo.PrivateKey
         };
         await _client.SetCdnDomainSSLCertificateAsync(request);
         _logger.LogInformation("Certificate uploaded to Alibaba Cloud CDN");

@@ -11,7 +11,7 @@ public class SslCertHubHostService : BackgroundService
     public SslCertHubHostService(
         ILogger<SslCertHubHostService> logger,
         SslCertManager sslCertManager
-        )
+    )
     {
         _logger = logger;
         _sslCertManager = sslCertManager;
@@ -19,7 +19,7 @@ public class SslCertHubHostService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        while (true)
+        while (!stoppingToken.IsCancellationRequested)
         {
             stoppingToken.ThrowIfCancellationRequested();
 

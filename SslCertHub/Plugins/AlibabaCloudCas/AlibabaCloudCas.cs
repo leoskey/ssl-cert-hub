@@ -30,13 +30,13 @@ public class AlibabaCloudCas : ISslCertHubPlugin, ITransientDependency
         _client = new Client(config);
     }
 
-    public async Task OnCertGenerated(Certificate certificate)
+    public async Task OnCertGenerated(CertificateInfo certificateInfo)
     {
         var uploadUserCertificateRequest = new UploadUserCertificateRequest
         {
-            Cert = certificate.PemPublicKey,
-            Key = certificate.PemPrivateKey,
-            Name = $"{certificate.Domain}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}"
+            Cert = certificateInfo.PublicKey,
+            Key = certificateInfo.PrivateKey,
+            Name = $"{certificateInfo.Domain}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}"
         };
         await _client.UploadUserCertificateAsync(uploadUserCertificateRequest);
         _logger.LogInformation("Certificate uploaded to Alibaba Cloud CAS");
