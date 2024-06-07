@@ -27,7 +27,7 @@ git clone https://github.com/leoskey/SslCertHub.git
       "Email": "your-email@example.com"
     }
   },
-  "DnsProvider": {
+  "CloudProvider": {
     "AlibabaCloud": {
       "AccessKeyId": "your-access-key-id",
       "AccessKeySecret": "your-access-key-secret"
